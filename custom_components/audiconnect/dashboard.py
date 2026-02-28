@@ -18,6 +18,7 @@ from homeassistant.const import (
     EntityCategory,
 )
 from .util import parse_datetime
+from .const import DEFAULT_UNITS
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -57,12 +58,11 @@ class Instrument:
             return False
 
         if not self.is_supported:
-            # _LOGGER.debug(
-            #     "%s (%s:%s) is not supported", self, type(self).__name__, self._attr,
-            # )
             return False
 
-        # _LOGGER.debug("%s is supported", self)
+        # make unit preference available to instruments
+        self._units = config.get("units", DEFAULT_UNITS)
+        self._hass = config.get("hass")  # pass hass for auto detection
 
         return True
 
@@ -168,6 +168,7 @@ class Sensor(Instrument):
         self.entity_category = entity_category
         self.extra_state_attributes = extra_state_attributes
         self._convert = False
+        self._units = DEFAULT_UNITS
 
     @property
     def is_mutable(self):
@@ -182,15 +183,53 @@ class Sensor(Instrument):
 
     @property
     def state(self):
-        return super().state
+        val = super().state
+        units_pref = self._units
+        # Proper auto detection
+        if units_pref == "auto" and hasattr(self, "_hass") and self._hass:
+            if hasattr(self._hass, "config") and hasattr(self._hass.config, "units"):
+                units_pref = "metric" if self._hass.config.units.is_metric else "imperial"
+        try:
+            if val is None:
+                return None
+            # Only convert for sensors with kilometer units
+            if units_pref == "imperial" and self._unit == UnitOfLength.KILOMETERS:
+                if isinstance(val, (int, float)):
+                    converted = round(val * 0.621371, 2)
+                    _LOGGER.warning(f"Converting {val} km to {converted} mi for {self._attr}")
+                    return converted
+        except Exception:
+            _LOGGER.exception("Error converting state units for %s", self._attr)
+        _LOGGER.warning(f"Returning {val} for {self._attr} with units_pref={units_pref} and unit={self._unit}")
+        return val
 
     @property
     def unit(self):
-        supported = self._attr + "_unit"
-        if hasattr(self._vehicle, supported):
-            return getattr(self._vehicle, supported)
-
-        return self._unit
+        units_pref = self._units
+        if units_pref == "auto" and hasattr(self, "_hass") and self._hass:
+            if hasattr(self._hass, "config") and hasattr(self._hass.config, "units"):
+                units_pref = "metric" if self._hass.config.units.is_metric else "imperial"
+        if units_pref == "imperial" and self._unit == UnitOfLength.KILOMETERS:
+            _LOGGER.warning(f"Returning 'mi' for {self._attr}")
+            return "mi"
+        if self._unit == UnitOfLength.KILOMETERS:
+            _LOGGER.warning(f"Returning 'km' for {self._attr}")
+            return "km"
+        if self._unit == UnitOfLength.MILES:
+            return "mi"
+        if self._unit == UnitOfTime.MINUTES:
+            return "min"
+        if self._unit == UnitOfTime.DAYS:
+            return "d"
+        if self._unit == UnitOfTemperature.CELSIUS:
+            return "°C"
+        if self._unit == UnitOfElectricCurrent.AMPERE:
+            return "A"
+        if self._unit == UnitOfPower.KILO_WATT:
+            return "kW"
+        if self._unit == PERCENTAGE:
+            return "%"
+        return str(self._unit)
 
 
 class BinarySensor(Instrument):
@@ -357,22 +396,43 @@ class TripData(Instrument):
     def str_state(self):
         val = super().state
         txt = ""
-
         if val["averageElectricEngineConsumption"] is not None:
             txt = "{}{}_kWh__".format(txt, val["averageElectricEngineConsumption"])
-
         if val["averageFuelConsumption"] is not None:
             txt = "{}{}_ltr__".format(txt, val["averageFuelConsumption"])
-
-        return "{}{}_kmh__{}:{:02d}h_({}_m)__{}_km__{}-{}_km".format(
+        # format and convert units when needed
+        units_pref = getattr(self, "_units", DEFAULT_UNITS)
+        if units_pref == "auto" and hasattr(self, "_hass") and self._hass:
+            if hasattr(self._hass, "config") and hasattr(self._hass.config, "units"):
+                units_pref = "metric" if self._hass.config.units.is_metric else "imperial"
+        avg_speed = val.get("averageSpeed")
+        mileage = val.get("mileage")
+        start = val.get("startMileage")
+        overall = val.get("overallMileage")
+        if units_pref == "imperial":
+            def km2mi(x):
+                return round(x * 0.621371, 2) if isinstance(x, (int, float)) else x
+            speed_label = "mph"
+            dist_label = "mi"
+            avg_speed = km2mi(avg_speed)
+            mileage = km2mi(mileage)
+            start = km2mi(start)
+            overall = km2mi(overall)
+        else:
+            speed_label = "kmh"
+            dist_label = "km"
+        return "{}{}{}_{}__{}:{:02d}h_({}_m)__{}_{dist}__{}-{}_{dist}".format(
             txt,
-            val["averageSpeed"],
+            avg_speed,
+            "",
+            speed_label,
             int(val["traveltime"] / 60),
             val["traveltime"] % 60,
             val["traveltime"],
-            val["mileage"],
-            val["startMileage"],
-            val["overallMileage"],
+            mileage,
+            start,
+            overall,
+            dist=dist_label,
         )
 
     @property
@@ -396,6 +456,21 @@ class TripData(Instrument):
             "tripID": td.get("tripID", None),
             "zeroEmissionDistance": td.get("zeroEmissionDistance", None),
         }
+        units_pref = getattr(self, "_units", DEFAULT_UNITS)
+        if units_pref == "auto" and hasattr(self, "_hass") and self._hass:
+            if hasattr(self._hass, "config") and hasattr(self._hass.config, "units"):
+                units_pref = "metric" if self._hass.config.units.is_metric else "imperial"
+        if units_pref == "imperial":
+            def km2mi(x):
+                return round(x * 0.621371, 2) if isinstance(x, (int, float)) else x
+            if attr.get("averageSpeed") is not None:
+                attr["averageSpeed"] = km2mi(attr["averageSpeed"])
+            if attr.get("mileage") is not None:
+                attr["mileage"] = km2mi(attr["mileage"])
+            if attr.get("overallMileage") is not None:
+                attr["overallMileage"] = km2mi(attr["overallMileage"])
+            if attr.get("startMileage") is not None:
+                attr["startMileage"] = km2mi(attr["startMileage"])
         return attr
 
 

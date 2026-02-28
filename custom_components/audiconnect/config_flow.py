@@ -25,6 +25,9 @@ from .const import (
     DEFAULT_API_LEVEL,
     API_LEVELS,
     CONF_FILTER_VINS,
+    CONF_UNITS,
+    DEFAULT_UNITS,
+    UNITS,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -61,6 +64,7 @@ class AudiConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             self._region = REGIONS[user_input.get(CONF_REGION)]
             self._scan_interval = user_input[CONF_SCAN_INTERVAL]
             self._api_level = user_input[CONF_API_LEVEL]
+            self._units = user_input.get(CONF_UNITS, DEFAULT_UNITS)
 
             try:
                 # pylint: disable=no-value-for-parameter
@@ -96,6 +100,7 @@ class AudiConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                             CONF_REGION: self._region,
                             CONF_SCAN_INTERVAL: self._scan_interval,
                             CONF_API_LEVEL: self._api_level,
+                            CONF_UNITS: self._units,
                         },
                     )
 
@@ -110,6 +115,9 @@ class AudiConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         data_schema[
             vol.Optional(CONF_API_LEVEL, default=API_LEVELS[DEFAULT_API_LEVEL])
         ] = vol.All(vol.Coerce(int), vol.In(API_LEVELS))
+        data_schema[
+            vol.Optional(CONF_UNITS, default=DEFAULT_UNITS)
+        ] = vol.In(UNITS)
 
         return self.async_show_form(
             step_id="user",
@@ -206,6 +214,11 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
             self._config_entry.data.get(CONF_FILTER_VINS, ""),
         )
 
+        current_units = self._config_entry.options.get(
+            CONF_UNITS,
+            self._config_entry.data.get(CONF_UNITS, DEFAULT_UNITS),
+        )
+
         _LOGGER.debug(
             "Retrieved current scan interval for audiconnect %s: %s minutes",
             self._config_entry.title,
@@ -239,6 +252,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                         vol.Coerce(int), vol.In(API_LEVELS)
                     ),
                     vol.Optional(CONF_FILTER_VINS, default=current_filter_vins): str,
+                    vol.Optional(CONF_UNITS, default=current_units): vol.In(UNITS),
                 }
             ),
         )

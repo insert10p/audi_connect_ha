@@ -17,11 +17,13 @@ CONF_SCAN_ACTIVE = "scan_active"
 CONF_API_LEVEL = "api_level"
 CONF_DURATION = "duration"
 CONF_TARGET_SOC = "target_soc"
+CONF_UNITS = "units"
 
 MIN_UPDATE_INTERVAL = 15
 DEFAULT_UPDATE_INTERVAL = 15
 UPDATE_SLEEP = 5
 DEFAULT_API_LEVEL = 0
+DEFAULT_UNITS = "auto"  # options: 'auto' (use system), 'metric' (km/kph), 'imperial' (mi/mph)
 
 CONF_SPIN = "spin"
 CONF_REGION = "region"
@@ -100,3 +102,5 @@ REGIONS = {
 }
 
 API_LEVELS = [0, 1]
+
+UNITS = ["auto", "metric", "imperial"]

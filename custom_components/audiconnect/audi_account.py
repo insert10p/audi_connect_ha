@@ -36,6 +36,8 @@ from .const import (
     CONF_DURATION,
     CONF_TARGET_SOC,
     CONF_FILTER_VINS,
+    CONF_UNITS,
+    DEFAULT_UNITS,
 )
 from .dashboard import Dashboard
 
@@ -188,7 +190,11 @@ class AudiAccount(AudiConnectObserver):
                 cfg_vehicle.vehicle = vehicle
                 self.config_vehicles.add(cfg_vehicle)
 
-                dashboard = Dashboard(self.connection, vehicle)
+                # pass the preferred units (options override data)
+                units = self.config_entry.options.get(
+                    CONF_UNITS, self.config_entry.data.get(CONF_UNITS, DEFAULT_UNITS)
+                )
+                dashboard = Dashboard(self.connection, vehicle, units=units, hass=self.hass)
 
                 for instrument in (
                     instrument

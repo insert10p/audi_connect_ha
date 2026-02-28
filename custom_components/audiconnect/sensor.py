@@ -24,6 +24,8 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
 
     for config_vehicle in audiData.config_vehicles:
         for sensor in config_vehicle.sensors:
+            # Pass hass to each instrument for proper unit conversion
+            sensor._hass = hass
             sensors.append(AudiSensor(config_vehicle, sensor))
 
     async_add_entities(sensors, True)
@@ -39,7 +41,7 @@ class AudiSensor(AudiEntity, SensorEntity):
 
     @property
     def native_unit_of_measurement(self):
-        """Return the native unit of measurement."""
+        """Return the native unit of measurement as a string."""
         return self._instrument.unit
 
     @property
