@@ -36,6 +36,8 @@ from .const import (
     CONF_DURATION,
     CONF_TARGET_SOC,
     CONF_FILTER_VINS,
+    CONF_UNIT,
+    DEFAULT_UNIT,
 )
 from .dashboard import Dashboard
 
@@ -108,6 +110,10 @@ class AudiAccount(AudiConnectObserver):
         self.config_entry = config_entry
         self.config_vehicles = set()
         self.vehicles = set()
+        self.unit = config_entry.options.get(
+            CONF_UNIT,
+            config_entry.data.get(CONF_UNIT, DEFAULT_UNIT),
+        )
 
     def init_connection(self):
         session = async_get_clientsession(self.hass)
@@ -188,7 +194,7 @@ class AudiAccount(AudiConnectObserver):
                 cfg_vehicle.vehicle = vehicle
                 self.config_vehicles.add(cfg_vehicle)
 
-                dashboard = Dashboard(self.connection, vehicle)
+                dashboard = Dashboard(self.connection, vehicle, unit=self.unit)
 
                 for instrument in (
                     instrument

@@ -18,6 +18,7 @@ from homeassistant.const import (
     EntityCategory,
 )
 from .util import parse_datetime
+from .const import UNIT_METRIC, UNIT_IMPERIAL
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -168,6 +169,11 @@ class Sensor(Instrument):
         self.entity_category = entity_category
         self.extra_state_attributes = extra_state_attributes
         self._convert = False
+        self._unit_pref = UNIT_METRIC
+
+    def setup(self, connection, vehicle, mutable=True, unit=UNIT_METRIC, **config):
+        self._unit_pref = unit
+        return super().setup(connection, vehicle, mutable, **config)
 
     @property
     def is_mutable(self):
@@ -175,21 +181,30 @@ class Sensor(Instrument):
 
     @property
     def str_state(self):
-        if self.unit:
-            return "{} {}".format(self.state, self.unit)
+        val = self.state
+        unit = self.unit
+        if unit == UnitOfLength.KILOMETERS and self._unit_pref == UNIT_IMPERIAL:
+            return f"{val} mi"
+        if unit:
+            return f"{val} {unit}"
         else:
-            return "%s" % self.state
+            return "%s" % val
 
     @property
     def state(self):
-        return super().state
+        val = super().state
+        unit = self.unit
+        if unit == UnitOfLength.KILOMETERS and self._unit_pref == UNIT_IMPERIAL:
+            return round(km_to_miles(val), 2) if isinstance(val, (int, float)) else val
+        return val
 
     @property
     def unit(self):
         supported = self._attr + "_unit"
         if hasattr(self._vehicle, supported):
             return getattr(self._vehicle, supported)
-
+        if self._unit == UnitOfLength.KILOMETERS and self._unit_pref == UNIT_IMPERIAL:
+            return "mi"
         return self._unit
 
 
@@ -814,10 +829,19 @@ def create_instruments():
     ]
 
 
+def km_to_miles(km):
+    return km * 0.621371
+
+
+def c_to_f(c):
+    return c * 9.0 / 5.0 + 32.0
+
+
 class Dashboard:
-    def __init__(self, connection, vehicle, **config):
+    def __init__(self, connection, vehicle, unit=UNIT_METRIC, **config):
+        self.unit = unit
         self.instruments = [
             instrument
             for instrument in create_instruments()
-            if instrument.setup(connection, vehicle, **config)
+            if instrument.setup(connection, vehicle, unit=unit, **config)
         ]

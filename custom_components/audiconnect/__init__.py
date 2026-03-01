@@ -35,6 +35,8 @@ from .const import (
     CONF_API_LEVEL,
     DEFAULT_API_LEVEL,
     API_LEVELS,
+    CONF_UNIT,
+    DEFAULT_UNIT,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -87,6 +89,7 @@ async def async_setup(hass, config):
     data[CONF_SCAN_INTERVAL] = config[DOMAIN].get(CONF_SCAN_INTERVAL).seconds / 60
     data[CONF_REGION] = config[DOMAIN].get(CONF_REGION)
     data[CONF_API_LEVEL] = config[DOMAIN].get(CONF_API_LEVEL)
+    data[CONF_UNIT] = config[DOMAIN].get(CONF_UNIT, DEFAULT_UNIT)
 
     hass.async_create_task(
         hass.config_entries.flow.async_init(
@@ -133,6 +136,13 @@ async def async_setup_entry(hass, config_entry):
     # Get Active Scan Option - Default to True
     _scan_active = config_entry.options.get(CONF_SCAN_ACTIVE, True)
     _LOGGER.debug("User option for CONF_SCAN_ACTIVE is %s.", _scan_active)
+
+    # Get Unit Option - Default to Metric
+    _unit = config_entry.options.get(
+        CONF_UNIT,
+        config_entry.data.get(CONF_UNIT, DEFAULT_UNIT),
+    )
+    _LOGGER.debug("User option for CONF_UNIT is %s.", _unit)
 
     account = config_entry.data.get(CONF_USERNAME)
 

@@ -28,6 +28,12 @@ CONF_REGION = "region"
 CONF_SERVICE_URL = "service_url"
 CONF_MUTABLE = "mutable"
 CONF_FILTER_VINS = "filter_vins"
+CONF_UNIT = "unit"
+
+UNIT_METRIC = "metric"
+UNIT_IMPERIAL = "imperial"
+UNIT_OPTIONS = [UNIT_METRIC, UNIT_IMPERIAL]
+DEFAULT_UNIT = UNIT_METRIC
 
 SIGNAL_STATE_UPDATED = "{}.updated".format(DOMAIN)
 TRACKER_UPDATE = f"{DOMAIN}_tracker_update"
